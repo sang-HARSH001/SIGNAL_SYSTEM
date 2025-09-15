@@ -1,6 +1,7 @@
+streamlit
+streamlit-audiorec
+soundfile
 numpy
 matplotlib
-streamlit
-sounddevice
+pandas
 scipy
-
