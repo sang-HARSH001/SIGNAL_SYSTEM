@@ -5,8 +5,10 @@ import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
 
-# For real-time audio recording
-import sounddevice as sd
+# For browser-based audio recording
+from st_audiorec import st_audiorec
+import io
+import soundfile as sf
 
 st.title("📊 Signal Type Analyzer")
 
@@ -55,18 +57,19 @@ elif option == "Custom Input":
             st.error("❌ Invalid input format.")
             signal = None
 
-# 3️⃣ Real-time voice signal
+# 3️⃣ Real-time voice signal (browser-based)
 elif option == "Real-Time Voice Signal":
-    duration = st.slider("Select recording duration (seconds):", 1, 10, 3)
-    sample_rate = 44100  # Standard audio sample rate
+    st.subheader("🎤 Record Your Voice")
+    wav_audio_data = st_audiorec()
     
-    if st.button("🎤 Record Voice"):
-        st.info("Recording...")
-        recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
-        sd.wait()
-        signal = recording.flatten()
-        time_axis = np.linspace(0, duration, len(signal))
-        st.success("Recording completed!")
+    if wav_audio_data is not None:
+        st.audio(wav_audio_data, format='audio/wav')
+        try:
+            audio_array, sample_rate = sf.read(io.BytesIO(wav_audio_data))
+            signal = audio_array.flatten()
+            time_axis = np.linspace(0, len(signal)/sample_rate, len(signal))
+        except Exception as e:
+            st.error(f"❌ Error processing audio: {e}")
 
 # 4️⃣ File upload support
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
