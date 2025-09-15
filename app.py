@@ -62,12 +62,24 @@ elif option == "Real-Time Voice Signal":
     st.subheader("🎤 Record Your Voice")
     wav_audio_data = st_audiorec()
     
-    if wav_audio_data is not None:
+    if wav_audio_data is not None and len(wav_audio_data) > 0:
         st.audio(wav_audio_data, format='audio/wav')
         try:
             audio_array, sample_rate = sf.read(io.BytesIO(wav_audio_data))
-            signal = audio_array.flatten()
-            time_axis = np.linspace(0, len(signal)/sample_rate, len(signal))
+            
+            # Ensure mono channel
+            if audio_array.ndim > 1:
+                signal = audio_array[:, 0]
+            else:
+                signal = audio_array
+            
+            # Normalize amplitude
+            if np.max(np.abs(signal)) > 0:
+                signal = signal / np.max(np.abs(signal))
+            
+            # Generate time axis
+            time_axis = np.arange(len(signal)) if signal_type == "Discrete-Time" else np.linspace(0, len(signal)/sample_rate, len(signal))
+        
         except Exception as e:
             st.error(f"❌ Error processing audio: {e}")
 
@@ -85,7 +97,7 @@ if uploaded_file is not None:
         st.error(f"❌ Error reading file: {e}")
 
 # Run analysis and visualization
-if signal is not None and time_axis is not None:
+if signal is not None and time_axis is not None and len(signal) > 0:
     st.subheader("📈 Signal Visualization")
     fig, ax = plt.subplots()
     if signal_type == "Discrete-Time":
