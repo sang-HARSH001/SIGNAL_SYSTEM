@@ -28,14 +28,9 @@ signal = None
 time_axis = None
 
 # Predefined sample signals
-sample_keys = [
-    "Exponential Decay", "Sine Wave", "Cosine Wave",
-    "Unit Step Signal", "Unit Impulse Signal", "Ramp Signal"
-]
-
-if option in sample_keys:
-    signals = get_sample_signals()
-    signal = signals[option]
+sample_signals = get_sample_signals()
+if option in sample_signals:
+    signal = sample_signals.get(option)
     time_axis = np.arange(len(signal))
 
 # Custom input
