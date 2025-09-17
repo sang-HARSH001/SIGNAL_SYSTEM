@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
-import soundfile as sf
+import sounddevice as sd
 
 st.title("📊 Signal Type Analyzer")
 
@@ -48,18 +48,57 @@ elif option == "Custom Input":
             st.error("❌ Invalid input format.")
             signal = None
 
-# Real-time voice signal (Upload WAV instead of recording)
+# Real-time voice signal (Recording or Upload WAV)
 elif option == "Real-Time Voice Signal":
-    st.subheader("🔊 Upload a Voice Recording (.wav)")
+    st.subheader("🔊 Input Voice Signal")
 
-    uploaded_audio = st.file_uploader("Upload your .wav file", type=['wav'])
+    input_mode = st.radio("Choose Input Mode:", ["Record Real-Time Voice", "Upload WAV File"])
 
-    if uploaded_audio is not None:
-        data, sample_rate = sf.read(uploaded_audio)
-        signal = data.flatten()
-        duration = len(signal) / sample_rate
-        time_axis = np.linspace(0, duration, len(signal))
-        st.success("✅ Audio file loaded successfully.")
+    if input_mode == "Record Real-Time Voice":
+        duration = st.slider("Select recording duration (seconds):", 1, 10, 3)
+        sample_rate = 44100
+
+        if "voice_recorded" not in st.session_state:
+            st.session_state.voice_recorded = False
+            st.session_state.signal = None
+            st.session_state.time_axis = None
+
+        if not st.session_state.voice_recorded:
+            if st.button("▶️ Start Recording"):
+                st.info("Recording in progress...")
+                recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
+                sd.wait()
+                signal = recording.flatten()
+                time_axis = np.linspace(0, duration, len(signal))
+                st.session_state.signal = signal
+                st.session_state.time_axis = time_axis
+                st.session_state.voice_recorded = True
+                st.success("🎤 Recording completed!")
+        else:
+            st.success("✅ Voice already recorded.")
+            if st.button("🔄 Record Again"):
+                st.info("Re-recording in progress...")
+                recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
+                sd.wait()
+                signal = recording.flatten()
+                time_axis = np.linspace(0, duration, len(signal))
+                st.session_state.signal = signal
+                st.session_state.time_axis = time_axis
+                st.success("🎤 Re-recording completed!")
+
+        if st.session_state.voice_recorded:
+            signal = st.session_state.signal
+            time_axis = st.session_state.time_axis
+
+    else:
+        uploaded_audio = st.file_uploader("Upload your .wav file", type=['wav'])
+
+        if uploaded_audio is not None:
+            data, sample_rate = sf.read(uploaded_audio)
+            signal = data.flatten()
+            duration = len(signal) / sample_rate
+            time_axis = np.linspace(0, duration, len(signal))
+            st.success("✅ Audio file loaded successfully.")
 
 # File upload support
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
@@ -77,7 +116,7 @@ if uploaded_file is not None:
 # Visualization and Analysis
 if signal is not None and time_axis is not None:
     if option == "Real-Time Voice Signal":
-        st.subheader("📈 Voice Signal Visualization")
+        st.subheader("📈 Real-Time Voice Signal Visualization")
 
         display_type = st.radio("Choose waveform type to display:", ["Continuous-Time", "Discrete-Time"])
 
@@ -88,7 +127,7 @@ if signal is not None and time_axis is not None:
             ax.set_title("Continuous-Time Representation")
             ax.set_xlabel('t (seconds)')
         else:
-            ax.stem(np.arange(len(signal)), signal)
+            ax.stem(np.arange(len(signal)), signal, linefmt='b-', markerfmt='bo', basefmt='r-')
             ax.set_title("Discrete-Time Representation")
             ax.set_xlabel('n (samples)')
         
@@ -106,7 +145,7 @@ if signal is not None and time_axis is not None:
         st.subheader("📈 Signal Visualization")
         fig, ax = plt.subplots()
         if signal_type == "Discrete-Time":
-            ax.stem(time_axis, signal)
+            ax.stem(time_axis, signal, linefmt='b-', markerfmt='bo', basefmt='r-')
             ax.set_xlabel('n (samples)')
         else:
             ax.plot(time_axis, signal)
