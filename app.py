@@ -5,8 +5,9 @@ import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
 import sympy as sp
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
-import queue
+from audiorec import audiorec
+import io
+import soundfile as sf
 
 st.title("📊 Signal Type Analyzer")
 
@@ -132,34 +133,20 @@ elif option == "Custom Input":
 elif option == "Real-Time Voice Signal":
     st.subheader("🔊 Input Voice Signal (Browser Recording)")
 
-    audio_buffer = queue.Queue()
+    audio_bytes = audiorec()  # Browser recording widget
 
-    class AudioProcessor(AudioProcessorBase):
-        def __init__(self):
-            self.frames = []
-
-        def recv_audio(self, frame):
-            self.frames.append(frame.to_ndarray())
-            return frame
-
-    webrtc_ctx = webrtc_streamer(
-        key="voice",
-        mode=WebRtcMode.SENDONLY,
-        audio_processor_factory=AudioProcessor,
-        media_stream_constraints={"audio": True, "video": False},
-        async_processing=True,
-    )
-
-    if webrtc_ctx.audio_processor:
-        if st.button("✅ Capture Audio"):
-            frames = webrtc_ctx.audio_processor.frames
-            if frames:
-                signal = np.concatenate(frames).flatten()
-                sample_rate = 48000
-                duration = len(signal)/sample_rate
-                time_axis = np.linspace(0, duration, len(signal))
-                signal_type = 'Discrete'
-                st.success("🎤 Recording captured!")
+    if audio_bytes:
+        audio_buffer = io.BytesIO(audio_bytes)
+        data, sample_rate = sf.read(audio_buffer)
+        signal = data.flatten()
+        duration = len(signal) / sample_rate
+        time_axis = np.linspace(0, duration, len(signal))
+        signal_type = 'Discrete'
+        
+        st.success("🎤 Recording completed!")
+        
+        # --- Play the recorded audio ---
+        st.audio(audio_bytes, format='audio/wav')
 
 # --- CSV Upload Support ---
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
@@ -191,15 +178,9 @@ if signal is not None and time_axis is not None:
             ax.set_title("Continuous-Time Signal")
 
     elif option == "Real-Time Voice Signal":
-        display_type = st.radio("Choose waveform type to display:", ["Continuous-Time", "Discrete-Time"])
-        if display_type == "Discrete-Time":
-            ax.stem(np.arange(len(signal)), signal, linefmt='b-', markerfmt='bo', basefmt='r-')
-            ax.set_xlabel('n (samples)')
-            ax.set_title("Discrete-Time Representation")
-        else:
-            ax.plot(time_axis, signal)
-            ax.set_xlabel('t (seconds)')
-            ax.set_title("Continuous-Time Representation")
+        ax.stem(np.arange(len(signal)), signal, linefmt='b-', markerfmt='bo', basefmt='r-')
+        ax.set_xlabel('n (samples)')
+        ax.set_title("Recorded Voice Signal")
 
     else:
         signal_type_option = st.radio("Select Signal Type:", ["Discrete-Time", "Continuous-Time"])
