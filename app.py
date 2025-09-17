@@ -4,21 +4,21 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
-from streamlit_audiorec import st_audiorec
+from st_audiorec import st_audiorec  # ✅ Corrected import
 import scipy.io.wavfile as wav
 import io
 
 st.title("📊 Signal Type Analyzer")
 
 option = st.selectbox(
-    "Select a sample signal or input your own:", 
+    "Select a sample signal or input your own:",
     [
-        "Exponential Decay", 
-        "Sine Wave", 
-        "Cosine Wave", 
-        "Unit Step Signal", 
-        "Unit Impulse Signal", 
-        "Ramp Signal", 
+        "Exponential Decay",
+        "Sine Wave",
+        "Cosine Wave",
+        "Unit Step Signal",
+        "Unit Impulse Signal",
+        "Ramp Signal",
         "Custom Input",
         "Real-Time Voice Signal"
     ]
@@ -28,14 +28,14 @@ signal = None
 time_axis = None
 
 # Predefined sample signals
-if option not in ["Custom Input", "Real-Time Voice Signal"]:
+sample_keys = [
+    "Exponential Decay", "Sine Wave", "Cosine Wave",
+    "Unit Step Signal", "Unit Impulse Signal", "Ramp Signal"
+]
+
+if option in sample_keys:
     signals = get_sample_signals()
-    signal = signals[list(signals.keys())[
-        [
-            "Exponential Decay", "Sine Wave", "Cosine Wave", 
-            "Unit Step Signal", "Unit Impulse Signal", "Ramp Signal"
-        ].index(option)
-    ]]
+    signal = signals[option]
     time_axis = np.arange(len(signal))
 
 # Custom input
@@ -48,11 +48,10 @@ elif option == "Custom Input":
         try:
             signal = np.array([float(x.strip()) for x in signal_input.split(",")])
             time_axis = np.arange(len(signal))
-        except:
-            st.error("❌ Invalid input format.")
-            signal = None
+        except ValueError:
+            st.error("❌ Invalid input format. Please enter numeric values separated by commas.")
 
-# Real-time voice signal using streamlit-audiorec
+# Real-time voice signal
 elif option == "Real-Time Voice Signal":
     st.subheader("🔊 Input Voice Signal")
     input_mode = st.radio("Choose Input Mode:", ["Record Real-Time Voice", "Upload WAV File"])
@@ -65,26 +64,30 @@ elif option == "Real-Time Voice Signal":
             st.audio(wav_audio_data, format='audio/wav')
             st.success("🎤 Recording captured successfully!")
 
-            wav_bytes = io.BytesIO(wav_audio_data)
-            sample_rate, data = wav.read(wav_bytes)
-
-            signal = data.astype(np.float32)
-            if signal.ndim > 1:
-                signal = signal.mean(axis=1)
-
-            duration = len(signal) / sample_rate
-            time_axis = np.linspace(0, duration, len(signal))
+            try:
+                wav_bytes = io.BytesIO(wav_audio_data)
+                sample_rate, data = wav.read(wav_bytes)
+                signal = data.astype(np.float32)
+                if signal.ndim > 1:
+                    signal = signal.mean(axis=1)
+                duration = len(signal) / sample_rate
+                time_axis = np.linspace(0, duration, len(signal))
+            except Exception as e:
+                st.error(f"❌ Error processing audio: {e}")
 
     else:
         uploaded_audio = st.file_uploader("Upload your .wav file", type=['wav'])
         if uploaded_audio is not None:
-            sample_rate, data = wav.read(uploaded_audio)
-            signal = data.astype(np.float32)
-            if signal.ndim > 1:
-                signal = signal.mean(axis=1)
-            duration = len(signal) / sample_rate
-            time_axis = np.linspace(0, duration, len(signal))
-            st.success("✅ Audio file loaded successfully.")
+            try:
+                sample_rate, data = wav.read(uploaded_audio)
+                signal = data.astype(np.float32)
+                if signal.ndim > 1:
+                    signal = signal.mean(axis=1)
+                duration = len(signal) / sample_rate
+                time_axis = np.linspace(0, duration, len(signal))
+                st.success("✅ Audio file loaded successfully.")
+            except Exception as e:
+                st.error(f"❌ Error reading audio file: {e}")
 
 # CSV file upload
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
@@ -101,38 +104,23 @@ if uploaded_file is not None:
 
 # Visualization and Analysis
 if signal is not None and time_axis is not None:
-    if option == "Real-Time Voice Signal":
-        st.subheader("📈 Real-Time Voice Signal Visualization")
-        display_type = st.radio("Choose waveform type to display:", ["Continuous-Time", "Discrete-Time"])
-        fig, ax = plt.subplots(figsize=(10, 4))
-        if display_type == "Continuous-Time":
-            ax.plot(time_axis, signal)
-            ax.set_title("Continuous-Time Representation")
-            ax.set_xlabel('t (seconds)')
-        else:
-            ax.stem(np.arange(len(signal)), signal, linefmt='b-', markerfmt='bo', basefmt='r-')
-            ax.set_title("Discrete-Time Representation")
-            ax.set_xlabel('n (samples)')
-        ax.set_ylabel('Amplitude')
-        st.pyplot(fig)
-
+    st.subheader("📈 Signal Visualization")
+    signal_type = st.radio("Select Signal Type:", ["Discrete-Time", "Continuous-Time"])
+    if signal_type == "Continuous-Time":
+        time_axis = np.linspace(0, len(signal)/10, len(signal))
     else:
-        signal_type = st.radio("Select Signal Type:", ["Discrete-Time", "Continuous-Time"])
-        if signal_type == "Continuous-Time":
-            time_axis = np.linspace(0, len(signal)/10, len(signal))
-        else:
-            time_axis = np.arange(len(signal))
+        time_axis = np.arange(len(signal))
 
-        st.subheader("📈 Signal Visualization")
-        fig, ax = plt.subplots()
-        if signal_type == "Discrete-Time":
-            ax.stem(time_axis, signal, linefmt='b-', markerfmt='bo', basefmt='r-')
-            ax.set_xlabel('n (samples)')
-        else:
-            ax.plot(time_axis, signal)
-            ax.set_xlabel('t (seconds)')
-        ax.set_ylabel('Amplitude')
-        st.pyplot(fig)
+    fig, ax = plt.subplots(figsize=(10, 4))
+    if signal_type == "Discrete-Time":
+        ax.stem(time_axis, signal, linefmt='b-', markerfmt='bo', basefmt='r-')
+        ax.set_xlabel('n (samples)')
+    else:
+        ax.plot(time_axis, signal)
+        ax.set_xlabel('t (seconds)')
+    ax.set_ylabel('Amplitude')
+    ax.set_title(f"{option} - {signal_type} Representation")
+    st.pyplot(fig)
 
     # Analysis Results
     energy = calculate_energy(signal)
@@ -144,5 +132,5 @@ if signal is not None and time_axis is not None:
     st.write(f"**Energy**: {energy:.4f}")
     st.write(f"**Power**: {power:.4f}")
     st.write("🟢 Classified as **Energy Signal**" if energy < 1e3 else "🟢 Classified as **Power Signal**")
-    st.write(f"🔄 Periodic: {'Yes' if periodic else 'No'}", f"(Period = {period})" if periodic else "")
+    st.write(f"🔄 Periodic: {'Yes' if periodic else 'No'}" + (f" (Period = {period})" if periodic else ""))
     st.write(f"🔔 Causal: {'Yes' if causal else 'No'}")
