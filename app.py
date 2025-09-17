@@ -5,9 +5,8 @@ import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
 import sympy as sp
-from audiorec import audiorec
-import io
-import soundfile as sf
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+import queue
 
 st.title("📊 Signal Type Analyzer")
 
@@ -61,7 +60,10 @@ elif option in ["Modulus of Signal", "Derivative of Signal", "Integral of Signal
                 else:
                     if 't' in base_input:
                         base_signal_type = 'Continuous'
-                        t = np.linspace(0, 10, 1000)
+                        t_min = st.number_input("Start time (t_min):", value=0.0)
+                        t_max = st.number_input("End time (t_max):", value=10.0)
+                        num_points = st.slider("Number of points:", 100, 5000, 1000, step=100)
+                        t = np.linspace(t_min, t_max, num_points)
                         expr = sp.sympify(base_input, evaluate=False)
                         base_signal = np.array([float(expr.subs(sp.Symbol('t'), val)) for val in t])
                         time_axis = t
@@ -107,7 +109,11 @@ elif option == "Custom Input":
         try:
             if 't' in signal_input:
                 signal_type = 'Continuous'
-                t = np.linspace(0, 10, 1000)
+                st.subheader("⏱ Continuous-Time Range Selection")
+                t_min = st.number_input("Start time (t_min):", value=0.0)
+                t_max = st.number_input("End time (t_max):", value=10.0)
+                num_points = st.slider("Number of points:", 100, 5000, 1000, step=100)
+                t = np.linspace(t_min, t_max, num_points)
                 expr = sp.sympify(signal_input, evaluate=False)
                 signal = np.array([float(expr.subs(sp.Symbol('t'), val)) for val in t])
                 time_axis = t
@@ -125,17 +131,35 @@ elif option == "Custom Input":
 # --- Real-Time Voice Signal (Browser) ---
 elif option == "Real-Time Voice Signal":
     st.subheader("🔊 Input Voice Signal (Browser Recording)")
-    
-    audio_bytes = audiorec()
-    
-    if audio_bytes:
-        audio_buffer = io.BytesIO(audio_bytes)
-        data, sample_rate = sf.read(audio_buffer)
-        signal = data.flatten()
-        duration = len(signal)/sample_rate
-        time_axis = np.linspace(0, duration, len(signal))
-        signal_type = 'Discrete'
-        st.success("🎤 Recording completed!")
+
+    audio_buffer = queue.Queue()
+
+    class AudioProcessor(AudioProcessorBase):
+        def __init__(self):
+            self.frames = []
+
+        def recv_audio(self, frame):
+            self.frames.append(frame.to_ndarray())
+            return frame
+
+    webrtc_ctx = webrtc_streamer(
+        key="voice",
+        mode=WebRtcMode.SENDONLY,
+        audio_processor_factory=AudioProcessor,
+        media_stream_constraints={"audio": True, "video": False},
+        async_processing=True,
+    )
+
+    if webrtc_ctx.audio_processor:
+        if st.button("✅ Capture Audio"):
+            frames = webrtc_ctx.audio_processor.frames
+            if frames:
+                signal = np.concatenate(frames).flatten()
+                sample_rate = 48000
+                duration = len(signal)/sample_rate
+                time_axis = np.linspace(0, duration, len(signal))
+                signal_type = 'Discrete'
+                st.success("🎤 Recording captured!")
 
 # --- CSV Upload Support ---
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
