@@ -5,7 +5,7 @@ import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
 import sympy as sp
-from audiorec import audiorec
+from streamlit-audiorec import audiorec
 import io
 import soundfile as sf
 
@@ -218,3 +218,4 @@ if signal is not None and time_axis is not None:
     st.write("🟢 Classified as **Energy Signal**" if energy < 1e3 else "🟢 Classified as **Power Signal**")
     st.write(f"🔄 Periodic: {'Yes' if periodic else 'No'}", f"(Period = {period})" if periodic else "")
     st.write(f"🔔 Causal: {'Yes' if causal else 'No'}")
+
