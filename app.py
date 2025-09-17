@@ -5,7 +5,6 @@ import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
 import soundfile as sf
-from streamlit_audiorec import audio_recorder
 
 st.title("📊 Signal Type Analyzer")
 
@@ -49,24 +48,18 @@ elif option == "Custom Input":
             st.error("❌ Invalid input format.")
             signal = None
 
-# Real-time voice signal
+# Real-time voice signal (Upload WAV instead of recording)
 elif option == "Real-Time Voice Signal":
-    st.subheader("🎤 Record your voice")
+    st.subheader("🔊 Upload a Voice Recording (.wav)")
 
-    audio_bytes = audio_recorder()
-    
-    if audio_bytes:
-        # Save the recorded audio to a temporary file
-        with open('temp_audio.wav', 'wb') as f:
-            f.write(audio_bytes)
+    uploaded_audio = st.file_uploader("Upload your .wav file", type=['wav'])
 
-        # Load the audio file
-        data, sample_rate = sf.read('temp_audio.wav')
+    if uploaded_audio is not None:
+        data, sample_rate = sf.read(uploaded_audio)
         signal = data.flatten()
         duration = len(signal) / sample_rate
         time_axis = np.linspace(0, duration, len(signal))
-
-        st.success("✅ Recording successful!")
+        st.success("✅ Audio file loaded successfully.")
 
 # File upload support
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
@@ -84,7 +77,7 @@ if uploaded_file is not None:
 # Visualization and Analysis
 if signal is not None and time_axis is not None:
     if option == "Real-Time Voice Signal":
-        st.subheader("📈 Real-Time Voice Signal Visualization")
+        st.subheader("📈 Voice Signal Visualization")
 
         display_type = st.radio("Choose waveform type to display:", ["Continuous-Time", "Discrete-Time"])
 
