@@ -8,5 +8,6 @@ def get_sample_signals():
         'Unit Step Signal (Causal)': np.array([1 for _ in range(50)]),
         'Unit Impulse Signal': np.array([1] + [0]*49),
         'Ramp Signal (Causal)': np.array([n for n in range(50)]),
-        'Non-Causal Example': np.array([1 if -5 <= n < 5 else 0 for n in range(-10, 10)]),
+
     }
+
