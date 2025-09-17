@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
-from st_audiorec import st_audiorec  # ✅ Corrected import
+from st_audiorec import st_audiorec
 import scipy.io.wavfile as wav
 import io
 
@@ -27,7 +27,7 @@ option = st.selectbox(
 signal = None
 time_axis = None
 
-# Predefined sample signals
+# Load sample signals
 sample_signals = get_sample_signals()
 if option in sample_signals:
     signal = sample_signals.get(option)
@@ -97,35 +97,40 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"❌ Error reading file: {e}")
 
-# Visualization and Analysis
-if signal is not None and time_axis is not None:
-    st.subheader("📈 Signal Visualization")
-    signal_type = st.radio("Select Signal Type:", ["Discrete-Time", "Continuous-Time"])
-    if signal_type == "Continuous-Time":
-        time_axis = np.linspace(0, len(signal)/10, len(signal))
-    else:
-        time_axis = np.arange(len(signal))
+# Fallback for debugging
+if signal is None or time_axis is None:
+    st.warning("⚠️ No valid signal loaded. Using fallback test signal.")
+    signal = np.array([1, 2, 3, 4, 5])
+    time_axis = np.arange(len(signal))
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    if signal_type == "Discrete-Time":
-        ax.stem(time_axis, signal, linefmt='b-', markerfmt='bo', basefmt='r-')
-        ax.set_xlabel('n (samples)')
-    else:
-        ax.plot(time_axis, signal)
-        ax.set_xlabel('t (seconds)')
-    ax.set_ylabel('Amplitude')
-    ax.set_title(f"{option} - {signal_type} Representation")
-    st.pyplot(fig)
+# Visualization
+st.subheader("📈 Signal Visualization")
+signal_type = st.radio("Select Signal Type:", ["Discrete-Time", "Continuous-Time"])
+if signal_type == "Continuous-Time":
+    time_axis = np.linspace(0, len(signal)/10, len(signal))
+else:
+    time_axis = np.arange(len(signal))
 
-    # Analysis Results
-    energy = calculate_energy(signal)
-    power = calculate_power(signal)
-    periodic, period = is_periodic(signal)
-    causal = is_causal(signal)
+fig, ax = plt.subplots(figsize=(10, 4))
+if signal_type == "Discrete-Time":
+    ax.stem(time_axis, signal, linefmt='b-', markerfmt='bo', basefmt='r-')
+    ax.set_xlabel('n (samples)')
+else:
+    ax.plot(time_axis, signal)
+    ax.set_xlabel('t (seconds)')
+ax.set_ylabel('Amplitude')
+ax.set_title(f"{option} - {signal_type} Representation")
+st.pyplot(fig)
 
-    st.subheader("✅ Analysis Results")
-    st.write(f"**Energy**: {energy:.4f}")
-    st.write(f"**Power**: {power:.4f}")
-    st.write("🟢 Classified as **Energy Signal**" if energy < 1e3 else "🟢 Classified as **Power Signal**")
-    st.write(f"🔄 Periodic: {'Yes' if periodic else 'No'}" + (f" (Period = {period})" if periodic else ""))
-    st.write(f"🔔 Causal: {'Yes' if causal else 'No'}")
+# Analysis
+energy = calculate_energy(signal)
+power = calculate_power(signal)
+periodic, period = is_periodic(signal)
+causal = is_causal(signal)
+
+st.subheader("✅ Analysis Results")
+st.write(f"**Energy**: {energy:.4f}")
+st.write(f"**Power**: {power:.4f}")
+st.write("🟢 Classified as **Energy Signal**" if energy < 1e3 else "🟢 Classified as **Power Signal**")
+st.write(f"🔄 Periodic: {'Yes' if periodic else 'No'}" + (f" (Period = {period})" if periodic else ""))
+st.write(f"🔔 Causal: {'Yes' if causal else 'No'}")
