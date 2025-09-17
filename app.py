@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from signal_utils import calculate_energy, calculate_power, is_periodic, is_causal
 from sample_signals import get_sample_signals
-import sounddevice as sd
+import soundfile as sf
+from streamlit_audiorec import audio_recorder
 
 st.title("📊 Signal Type Analyzer")
 
@@ -50,41 +51,22 @@ elif option == "Custom Input":
 
 # Real-time voice signal
 elif option == "Real-Time Voice Signal":
-    duration = st.slider("Select recording duration (seconds):", 1, 10, 3)
-    sample_rate = 44100
+    st.subheader("🎤 Record your voice")
 
-    if "voice_recorded" not in st.session_state:
-        st.session_state.voice_recorded = False
+    audio_bytes = audio_recorder()
+    
+    if audio_bytes:
+        # Save the recorded audio to a temporary file
+        with open('temp_audio.wav', 'wb') as f:
+            f.write(audio_bytes)
 
-    # Start Recording Button
-    if not st.session_state.voice_recorded:
-        if st.button("▶️ Start Recording"):
-            st.info("Recording in progress...")
-            recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
-            sd.wait()
-            signal = recording.flatten()
-            time_axis = np.linspace(0, duration, len(signal))
-            st.session_state.signal = signal
-            st.session_state.time_axis = time_axis
-            st.session_state.voice_recorded = True
-            st.success("🎤 Recording completed!")
-    else:
-        st.success("✅ Voice already recorded.")
+        # Load the audio file
+        data, sample_rate = sf.read('temp_audio.wav')
+        signal = data.flatten()
+        duration = len(signal) / sample_rate
+        time_axis = np.linspace(0, duration, len(signal))
 
-        # Record Again Button
-        if st.button("🔄 Record Again"):
-            st.info("Re-recording in progress...")
-            recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
-            sd.wait()
-            signal = recording.flatten()
-            time_axis = np.linspace(0, duration, len(signal))
-            st.session_state.signal = signal
-            st.session_state.time_axis = time_axis
-            st.success("🎤 Re-recording completed!")
-
-    if st.session_state.voice_recorded:
-        signal = st.session_state.signal
-        time_axis = st.session_state.time_axis
+        st.success("✅ Recording successful!")
 
 # File upload support
 uploaded_file = st.file_uploader("Or upload a CSV file (with columns 'time' and 'amplitude')", type=['csv'])
